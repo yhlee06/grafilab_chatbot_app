@@ -16,21 +16,20 @@ class ModelSelectionSheet extends StatefulWidget {
 class _ModelSelectionSheetState extends State<ModelSelectionSheet> {
   late String _selectedModel;
   
-  // 现在变成一个空的 List，等一下从服务器拿数据填满它
   List<AiModel> _models = [];
-  bool _isLoading = true; // 添加一个加载状态
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _selectedModel = widget.initialSelection;
-    _fetchModelsFromBackend(); // 启动时立刻去拿数据
+    _fetchModelsFromBackend();
   }
 
-  // 核心功能：向你的 Python 后端发送请求
+  // Fetch model list from FastAPI backend
   Future<void> _fetchModelsFromBackend() async {
     try {
-      // ⚠️ 注意：安卓模拟器不能用 127.0.0.1 连你的电脑，必须用 10.0.2.2 这个魔法 IP！
+      // 10.0.2.2 connects Android emulator to host localhost
       final response = await http.get(Uri.parse('http://10.0.2.2:8000/api/models'));
       
       if (response.statusCode == 200) {
@@ -50,11 +49,11 @@ class _ModelSelectionSheetState extends State<ModelSelectionSheet> {
           _isLoading = false;
         });
       } else {
-        print('服务器报错了: ${response.statusCode}');
+        print('Server returned error: ${response.statusCode}');
         if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
-      print('连接后端失败: $e');
+      print('Connection failed: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
