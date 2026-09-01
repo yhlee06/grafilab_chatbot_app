@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../widgets/model_selection_sheet.dart';
 import '../widgets/model_selector.dart';
 import '../widgets/chat_input.dart';
@@ -132,27 +133,43 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final msg = _messages[index];
-                        return Align(
-                          alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 12.0),
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                            decoration: BoxDecoration(
-                              color: msg.isUser ? Colors.grey.shade100 : Colors.transparent,
-                              borderRadius: BorderRadius.circular(20),
+                  : ScrollConfiguration(
+                      behavior: const ScrollBehavior().copyWith(overscroll: false),
+                      child: ListView.builder(
+                        physics: const ClampingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final msg = _messages[index];
+                          return Align(
+                            alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 12.0),
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                              decoration: BoxDecoration(
+                                color: msg.isUser ? Colors.grey.shade100 : Colors.transparent,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: msg.isUser
+                                  ? Text(
+                                      msg.text,
+                                      style: const TextStyle(fontSize: 16, color: Colors.black87),
+                                    )
+                                  : MarkdownBody(
+                                      data: msg.text,
+                                      styleSheet: MarkdownStyleSheet(
+                                        p: const TextStyle(fontSize: 16, color: Colors.black87, height: 1.5),
+                                        strong: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                                        h1: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                                        h2: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.black87),
+                                        h3: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87),
+                                        listBullet: const TextStyle(fontSize: 16, color: Colors.black87),
+                                      ),
+                                    ),
                             ),
-                            child: Text(
-                              msg.text,
-                              style: const TextStyle(fontSize: 16, color: Colors.black87),
-                            ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
             ),
 
