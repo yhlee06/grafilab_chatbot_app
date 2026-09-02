@@ -4,7 +4,7 @@ WEB_SEARCH_TOOL = {
     "type": "function",
     "function": {
         "name": "web_search",
-        "description": "Search the internet for real-time, up-to-date information, news, current events, locations, weather, restaurants, etc.",
+        "description": "Search the internet for real-time, up-to-date information, news, current events, locations, weather, restaurants, hotels, cafes, clinics, hospitals etc.",
         "parameters": {
             "type": "object",
             "properties": {

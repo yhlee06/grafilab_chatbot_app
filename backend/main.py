@@ -32,8 +32,8 @@ def get_models():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        cur.execute("SELECT * FROM models ORDER BY id ASC;")
-        models = cur.fetchall()
+        cur.execute("SELECT * FROM models WHERE name != 'GLM OCR' ORDER BY id ASC;")
+        models = cur.fetchall();
         
         cur.close()
         conn.close()
@@ -63,6 +63,6 @@ async def chat_with_ai(request: ChatRequest):
     except Exception as e:
         print("Database model lookup error:", e)
 
-    # 2. Call LLM service with Tool Calling support
+    # 2. Call LLM service (Tool Calling + Tavily Search)
     reply_text = await get_ai_chat_response(model_url=model_url, user_message=request.message)
     return {"reply": reply_text}

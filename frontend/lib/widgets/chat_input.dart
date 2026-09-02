@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'attachment_sheet.dart';
 
 class ChatInput extends StatefulWidget {
   final Function(String) onSend;
@@ -18,6 +19,16 @@ class _ChatInputState extends State<ChatInput> {
       widget.onSend(text);
       _controller.clear();
     }
+  }
+
+  void _openAttachmentSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return const AttachmentSheet();
+      },
+    );
   }
 
   @override
@@ -48,7 +59,7 @@ class _ChatInputState extends State<ChatInput> {
                   border: InputBorder.none,
                 ),
                 maxLines: null,
-                onSubmitted: (_) => _handleSend(), // Support pressing Enter on keyboard
+                onSubmitted: (_) => _handleSend(),
               ),
             ),
             Padding(
@@ -66,7 +77,7 @@ class _ChatInputState extends State<ChatInput> {
                       padding: EdgeInsets.zero,
                       icon: const Icon(Icons.add, color: Colors.black87),
                       iconSize: 20,
-                      onPressed: () {},
+                      onPressed: _openAttachmentSheet,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -101,7 +112,7 @@ class _ChatInputState extends State<ChatInput> {
                       padding: EdgeInsets.zero,
                       icon: const Icon(Icons.arrow_upward, color: Colors.white),
                       iconSize: 20,
-                      onPressed: _handleSend, // Call _handleSend when pressed
+                      onPressed: _handleSend,
                     ),
                   ),
                 ],
@@ -113,4 +124,3 @@ class _ChatInputState extends State<ChatInput> {
     );
   }
 }
-

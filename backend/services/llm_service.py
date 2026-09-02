@@ -24,8 +24,8 @@ def append_json_log(event_data: dict):
 
 async def get_ai_chat_response(model_url: str, user_message: str) -> str:
     """
-    Handles conversation with the LLM in an agent loop.
-    Prevents endless search loops by forcing a synthesis turn when max tool turns are reached.
+    Handles conversation with the LLM in an agent loop, supporting Tool Calling,
+    logging JSON Lines, and outputting to terminal.
     """
     request_start_time = time.time()
     req_id = f"req_{uuid.uuid4().hex[:6]}"
@@ -52,10 +52,10 @@ async def get_ai_chat_response(model_url: str, user_message: str) -> str:
         {"role": "user", "content": user_message}
     ]
     
-    max_tool_turns = 3 # Allow up to 3 searches
+    max_tool_turns = 3
     turn = 0
     
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         try:
             while turn < max_tool_turns:
                 turn += 1
@@ -71,8 +71,7 @@ async def get_ai_chat_response(model_url: str, user_message: str) -> str:
                 response = await client.post(
                     f"{base_url}/chat/completions",
                     headers=headers,
-                    json=payload,
-                    timeout=60.0
+                    json=payload
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -179,7 +178,7 @@ async def get_ai_chat_response(model_url: str, user_message: str) -> str:
                         "content": search_data.get("raw_text", "")
                     })
             
-            # If search loop completed max search turns, FORCE final answer without further tools
+            # If search loop reached max turns, force final answer
             final_turn_start = time.time()
             final_payload = {
                 "model": model_url,
@@ -200,8 +199,8 @@ async def get_ai_chat_response(model_url: str, user_message: str) -> str:
             final_reply = final_msg.get("content") or final_msg.get("reasoning_content") or choice.get("text") or "No content available."
             
             final_duration_ms = int((time.time() - final_turn_start) * 1000)
+            total_duration_ms = int((time.time() - request_start_time) * 1000)
             
-            # Log: llm_response
             append_json_log({
                 "timestamp": get_iso_timestamp(),
                 "level": "INFO",
@@ -211,9 +210,6 @@ async def get_ai_chat_response(model_url: str, user_message: str) -> str:
                 "status": "success",
                 "duration_ms": final_duration_ms
             })
-            
-            # Log: request_completed
-            total_duration_ms = int((time.time() - request_start_time) * 1000)
             append_json_log({
                 "timestamp": get_iso_timestamp(),
                 "level": "INFO",
@@ -239,7 +235,6 @@ async def get_ai_chat_response(model_url: str, user_message: str) -> str:
                 "error": str(e),
                 "duration_ms": total_duration_ms
             })
-            
             append_json_log({
                 "timestamp": get_iso_timestamp(),
                 "level": "ERROR",

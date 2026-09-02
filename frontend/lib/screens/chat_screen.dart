@@ -9,6 +9,7 @@ import '../widgets/chat_input.dart';
 class ChatMessageData {
   final String text;
   final bool isUser;
+
   ChatMessageData(this.text, this.isUser);
 }
 
@@ -20,7 +21,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  String _selectedModel = 'ILMU Mini v3.3'; // Set default to ILMU
+  String _selectedModel = 'ILMU Mini v3.3';
   final List<ChatMessageData> _messages = [];
   bool _isWaitingForReply = false;
 
@@ -60,7 +61,7 @@ class _ChatScreenState extends State<ChatScreen> {
           'model': _selectedModel,
           'message': text,
         }),
-      );
+      ).timeout(const Duration(seconds: 90));
 
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));
@@ -188,4 +189,3 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
-
