@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../models/ai_model.dart';
+import '../config/api_config.dart';
 
 class ModelSelectionSheet extends StatefulWidget {
   final String initialSelection;
@@ -27,7 +28,7 @@ class _ModelSelectionSheetState extends State<ModelSelectionSheet> {
   // Fetch model list from FastAPI backend
   Future<void> _fetchModelsFromBackend() async {
     try {
-      final response = await http.get(Uri.parse('http://10.0.2.2:8000/api/models'));
+      final response = await http.get(Uri.parse(ApiConfig.modelsEndpoint));
 
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));

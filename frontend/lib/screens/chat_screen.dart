@@ -5,12 +5,15 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import '../widgets/model_selection_sheet.dart';
 import '../widgets/model_selector.dart';
 import '../widgets/chat_input.dart';
+import '../widgets/attachment_sheet.dart';
+import '../config/api_config.dart';
 
 class ChatMessageData {
   final String text;
   final bool isUser;
+  final AttachedFileData? attachment;
 
-  ChatMessageData(this.text, this.isUser);
+  ChatMessageData(this.text, this.isUser, {this.attachment});
 }
 
 class ChatScreen extends StatefulWidget {
@@ -45,21 +48,23 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _sendMessage(String text) async {
-    // 1. Add user message to UI
+  Future<void> _sendMessage(String text, AttachedFileData? attachment) async {
+    // 1. Add user message with attachment to UI
     setState(() {
-      _messages.add(ChatMessageData(text, true));
+      _messages.add(ChatMessageData(text, true, attachment: attachment));
       _isWaitingForReply = true;
     });
 
     // 2. Call FastAPI backend
     try {
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/api/chat'),
+        Uri.parse(ApiConfig.chatEndpoint),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'model': _selectedModel,
           'message': text,
+          'image_url': attachment?.base64DataUri,
+          'file_url': attachment?.base64DataUri,
         }),
       ).timeout(const Duration(seconds: 90));
 
@@ -78,6 +83,9 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     } catch (e) {
+      debugPrint('\n==================================================');
+      debugPrint('[FLUTTER NETWORK CONNECTION ERROR]: $e');
+      debugPrint('==================================================\n');
       if (!mounted) return;
       setState(() {
         _messages.add(ChatMessageData("Error connecting to server: $e", false));
@@ -152,9 +160,56 @@ class _ChatScreenState extends State<ChatScreen> {
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: msg.isUser
-                                  ? Text(
-                                      msg.text,
-                                      style: const TextStyle(fontSize: 16, color: Colors.black87),
+                                  ? Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        // Display attached image / file in chat bubble
+                                        if (msg.attachment != null) ...[
+                                          if (msg.attachment!.isImage)
+                                            Padding(
+                                              padding: const EdgeInsets.only(bottom: 8.0),
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(12),
+                                                child: Image.memory(
+                                                  msg.attachment!.bytes,
+                                                  width: 180,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              ),
+                                            )
+                                          else
+                                            Padding(
+                                              padding: const EdgeInsets.only(bottom: 8.0),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(color: Colors.grey.shade300),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(Icons.description, size: 20, color: Colors.blueAccent),
+                                                    const SizedBox(width: 6),
+                                                    Flexible(
+                                                      child: Text(
+                                                        msg.attachment!.name,
+                                                        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                        Text(
+                                          msg.text,
+                                          style: const TextStyle(fontSize: 16, color: Colors.black87),
+                                        ),
+                                      ],
                                     )
                                   : MarkdownBody(
                                       data: msg.text,

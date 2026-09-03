@@ -59,3 +59,56 @@
 {"timestamp": "2026-09-01T17:36:01+08:00", "level": "INFO", "event": "tool_result", "request_id": "req_78a0fe", "tool_call_id": "call_dcd8f6a45315442687a584c9", "tool": "web_search", "result_count": 5, "duration_ms": 2677}
 {"timestamp": "2026-09-01T17:36:13+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_78a0fe", "model": "deepseek/deepseek-v4-flash", "status": "success", "duration_ms": 11046}
 {"timestamp": "2026-09-01T17:36:13+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_78a0fe", "total_duration_ms": 21166}
+{"timestamp": "2026-09-01T18:00:08+08:00", "level": "INFO", "event": "request_started", "request_id": "req_936ee3", "model": "deepseek/deepseek-v4-flash", "user_message": "你今天开心吗"}
+{"timestamp": "2026-09-01T18:00:13+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_936ee3", "model": "deepseek/deepseek-v4-flash", "status": "success", "duration_ms": 2129}
+{"timestamp": "2026-09-01T18:00:13+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_936ee3", "total_duration_ms": 5080}
+{"timestamp": "2026-09-01T18:04:06+08:00", "level": "INFO", "event": "request_started", "request_id": "req_cded23", "model": "deepseek/deepseek-v4-flash", "user_message": "你喜欢什么"}
+{"timestamp": "2026-09-01T18:04:10+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_cded23", "model": "deepseek/deepseek-v4-flash", "status": "success", "duration_ms": 3099}
+{"timestamp": "2026-09-01T18:04:10+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_cded23", "total_duration_ms": 3504}
+{"timestamp": "2026-09-01T18:08:12+08:00", "level": "INFO", "event": "request_started", "request_id": "req_3c472b", "model": "deepseek/deepseek-v4-flash", "user_message": "Hi"}
+{"timestamp": "2026-09-01T18:08:14+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_3c472b", "model": "deepseek/deepseek-v4-flash", "status": "success", "duration_ms": 1555}
+{"timestamp": "2026-09-01T18:08:14+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_3c472b", "total_duration_ms": 2109}
+{"timestamp": "2026-09-01T18:09:49+08:00", "level": "INFO", "event": "request_started", "request_id": "req_d7c2d0", "model": "deepseek/deepseek-v4-flash", "user_message": "马来西亚什么时候是国庆日"}
+{"timestamp": "2026-09-01T18:09:52+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_d7c2d0", "model": "deepseek/deepseek-v4-flash", "status": "success", "duration_ms": 2655}
+{"timestamp": "2026-09-01T18:09:52+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_d7c2d0", "total_duration_ms": 3129}
+{"timestamp": "2026-09-02T12:00:56+08:00", "level": "INFO", "event": "request_started", "request_id": "req_e5fbe1", "model": "ilmu/ilmu-mini-v3.3", "user_message": "hi"}
+{"timestamp": "2026-09-02T12:00:57+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_e5fbe1", "model": "ilmu/ilmu-mini-v3.3", "status": "success", "duration_ms": 575}
+{"timestamp": "2026-09-02T12:00:57+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_e5fbe1", "total_duration_ms": 1210}
+{"timestamp": "2026-09-02T18:08:01+08:00", "level": "INFO", "event": "request_started", "request_id": "req_f4e061", "model": "deepseek/deepseek-v4-flash", "user_message": "Hello, reply with 1 word."}
+{"timestamp": "2026-09-02T18:08:03+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_f4e061", "model": "deepseek/deepseek-v4-flash", "status": "success", "duration_ms": 1239}
+{"timestamp": "2026-09-02T18:08:03+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_f4e061", "total_duration_ms": 1766}
+{"timestamp": "2026-09-02T18:08:17+08:00", "level": "INFO", "event": "request_started", "request_id": "req_edeebf", "model": "qwen/qwen3-vl-flash", "user_message": "What is this?"}
+{"timestamp": "2026-09-02T18:08:17+08:00", "level": "ERROR", "event": "llm_response", "request_id": "req_edeebf", "model": "qwen/qwen3-vl-flash", "status": "failed", "error": "Client error '400 Bad Request' for url 'https://console-api.grafilab.ai/api/oai/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400", "duration_ms": 648}
+{"timestamp": "2026-09-02T18:08:17+08:00", "level": "ERROR", "event": "request_completed", "request_id": "req_edeebf", "total_duration_ms": 648}
+{"timestamp": "2026-09-02T18:09:35+08:00", "level": "INFO", "event": "request_started", "request_id": "req_844afa", "model": "ilmu/ilmu-mini-v3.3", "user_message": "Tell me what you see\n\n--- [Extracted Content from File via GLM OCR] ---\n<table><tr><td>n</td><td>n-1</td><td>n-2</td><td>n-3</td><td>n-4</td><td>n-5</td><td>n-6</td><td>n-7</td><td>n-8</td><td>n-9</td><td>n-10</td></tr></table>\n------------------------------------------------"}
+{"timestamp": "2026-09-02T18:09:38+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_844afa", "model": "ilmu/ilmu-mini-v3.3", "status": "success", "duration_ms": 3159}
+{"timestamp": "2026-09-02T18:09:38+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_844afa", "total_duration_ms": 3453}
+{"timestamp": "2026-09-02T18:09:38+08:00", "level": "INFO", "event": "request_started", "request_id": "req_015a0b", "model": "ilmu/ilmu-vision-v1.3", "user_message": "Tell me what you see"}
+{"timestamp": "2026-09-02T18:09:39+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_015a0b", "model": "ilmu/ilmu-vision-v1.3", "status": "success", "duration_ms": 356}
+{"timestamp": "2026-09-02T18:09:39+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_015a0b", "total_duration_ms": 687}
+{"timestamp": "2026-09-02T18:55:41+08:00", "level": "INFO", "event": "request_started", "request_id": "req_0b4e4d", "model": "deepseek/deepseek-v4-flash", "user_message": "你会无聊吗"}
+{"timestamp": "2026-09-02T18:55:45+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_0b4e4d", "model": "deepseek/deepseek-v4-flash", "status": "success", "duration_ms": 2599}
+{"timestamp": "2026-09-02T18:55:45+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_0b4e4d", "total_duration_ms": 3747}
+{"timestamp": "2026-09-03T11:52:12+08:00", "level": "INFO", "event": "request_started", "request_id": "req_7d4fcd", "model": "ilmu/ilmu-mini-v3.3", "user_message": "Describe this color in 5 words", "has_image": true}
+{"timestamp": "2026-09-03T11:52:12+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_7d4fcd", "model": "ilmu/ilmu-mini-v3.3", "status": "success", "duration_ms": 270}
+{"timestamp": "2026-09-03T11:52:12+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_7d4fcd", "total_duration_ms": 616}
+{"timestamp": "2026-09-03T11:52:13+08:00", "level": "INFO", "event": "request_started", "request_id": "req_a7a30c", "model": "deepseek/deepseek-v4-flash", "user_message": "Summarize this file\n\n--- [Extracted Content from File via GLM OCR] ---\n<table><tr><td></td></tr></table>\n------------------------------------------------", "has_image": false}
+{"timestamp": "2026-09-03T11:52:17+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_a7a30c", "model": "deepseek/deepseek-v4-flash", "status": "success", "duration_ms": 3624}
+{"timestamp": "2026-09-03T11:52:17+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_a7a30c", "total_duration_ms": 3898}
+{"timestamp": "2026-09-03T14:10:14+08:00", "level": "INFO", "event": "request_started", "request_id": "req_7e122c", "model": "ilmu/ilmu-mini-v3.3", "user_message": "你知道这个是什么吗？", "has_image": true}
+{"timestamp": "2026-09-03T14:10:24+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_7e122c", "model": "ilmu/ilmu-mini-v3.3", "status": "success", "duration_ms": 9952}
+{"timestamp": "2026-09-03T14:10:24+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_7e122c", "total_duration_ms": 10297}
+{"timestamp": "2026-09-03T14:28:58+08:00", "level": "INFO", "event": "request_started", "request_id": "req_e652a3", "model": "ilmu/ilmu-mini-v3.3", "user_message": "你知道这个是什么吗？", "has_image": true}
+{"timestamp": "2026-09-03T14:29:08+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_e652a3", "model": "ilmu/ilmu-mini-v3.3", "status": "success", "duration_ms": 9145}
+{"timestamp": "2026-09-03T14:29:08+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_e652a3", "total_duration_ms": 9469}
+{"timestamp": "2026-09-03T14:33:41+08:00", "level": "INFO", "event": "request_started", "request_id": "req_011975", "model": "deepseek/deepseek-v4-flash", "user_message": "你知道这些是什么食物吗？\n\n--- [Extracted Content from File via GLM OCR] ---\nMakanMakan\nby NELK KEE\n------------------------------------------------", "has_image": false}
+{"timestamp": "2026-09-03T14:33:45+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_011975", "model": "deepseek/deepseek-v4-flash", "status": "success", "duration_ms": 4190}
+{"timestamp": "2026-09-03T14:33:45+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_011975", "total_duration_ms": 4475}
+{"timestamp": "2026-09-03T14:42:51+08:00", "level": "INFO", "event": "request_started", "request_id": "req_52dea9", "model": "ilmu/ilmu-mini-v3.3", "user_message": "请问这张图片是什么颜色？", "has_image": true}
+{"timestamp": "2026-09-03T14:42:52+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_52dea9", "model": "ilmu/ilmu-mini-v3.3", "status": "success", "duration_ms": 1120}
+{"timestamp": "2026-09-03T14:42:52+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_52dea9", "total_duration_ms": 1470}
+{"timestamp": "2026-09-03T14:42:52+08:00", "level": "ERROR", "event": "llm_response", "request_id": "req_52dea9", "model": "ilmu/ilmu-mini-v3.3", "status": "failed", "error": "'charmap' codec can't encode characters in position 23-42: character maps to <undefined>", "duration_ms": 1470}
+{"timestamp": "2026-09-03T14:42:52+08:00", "level": "ERROR", "event": "request_completed", "request_id": "req_52dea9", "total_duration_ms": 1470}
+{"timestamp": "2026-09-03T14:43:50+08:00", "level": "INFO", "event": "request_started", "request_id": "req_9fa878", "model": "ilmu/ilmu-mini-v3.3", "user_message": "请问这张图片是什么颜色？", "has_image": true}
+{"timestamp": "2026-09-03T14:43:51+08:00", "level": "INFO", "event": "llm_response", "request_id": "req_9fa878", "model": "ilmu/ilmu-mini-v3.3", "status": "success", "duration_ms": 430}
+{"timestamp": "2026-09-03T14:43:51+08:00", "level": "INFO", "event": "request_completed", "request_id": "req_9fa878", "total_duration_ms": 760}
