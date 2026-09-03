@@ -27,10 +27,10 @@ def append_json_log(event_data: dict):
     except Exception as e:
         print(f"Error writing to log file: {e}")
 
-async def call_ai_model(model_url: str, user_message: str, image_url: str = None) -> str:
+async def call_ai_model(model_url: str, user_message: str, image_url: str = None, history: list = None) -> str:
     """
     Invokes the AI model.
-    Supports multimodal input (when image_url is provided) or standard text chat with Tool Calling.
+    Supports multimodal input (when image_url is provided) or standard text chat with Tool Calling and Conversation History.
     """
     request_start_time = time.time()
     req_id = f"req_{uuid.uuid4().hex[:6]}"
@@ -42,7 +42,8 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
         "request_id": req_id,
         "model": model_url,
         "user_message": user_message,
-        "has_image": bool(image_url)
+        "has_image": bool(image_url),
+        "history_len": len(history) if history else 0
     })
     
     api_key = os.getenv("GRAFILAB_API_KEY", "")
@@ -69,9 +70,18 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
     )
     
     messages = [
-        {"role": "system", "content": system_instruction},
-        {"role": "user", "content": user_content}
+        {"role": "system", "content": system_instruction}
     ]
+    
+    # Append multi-turn conversation history
+    if history and isinstance(history, list):
+        for item in history:
+            role = item.get("role") if isinstance(item, dict) else getattr(item, "role", None)
+            content = item.get("content") if isinstance(item, dict) else getattr(item, "content", None)
+            if role in ["user", "assistant"] and content:
+                messages.append({"role": role, "content": content})
+                
+    messages.append({"role": "user", "content": user_content})
     
     max_tool_turns = 3
     turn = 0
@@ -84,11 +94,13 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
                 
                 payload = {
                     "model": model_url,
-                    "messages": messages
+                    "messages": messages,
+                    "temperature": 0.7,
+                    "top_p": 0.9
                 }
                 
-                # Only provide search tool if not a direct vision request
-                if not image_url:
+                # Only provide search tool if not a direct vision request and not an OCR-dedicated model
+                if not image_url and "ocr" not in model_url.lower():
                     payload["tools"] = [WEB_SEARCH_TOOL]
                     payload["tool_choice"] = "auto"
                 

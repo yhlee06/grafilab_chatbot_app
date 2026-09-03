@@ -43,7 +43,7 @@ def get_models():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        cur.execute("SELECT * FROM models WHERE name != 'GLM OCR' ORDER BY id ASC;")
+        cur.execute("SELECT * FROM models ORDER BY id ASC;")
         models = cur.fetchall()
         
         cur.close()
@@ -58,6 +58,7 @@ class ChatRequest(BaseModel):
     message: str
     image_url: Optional[str] = None
     file_url: Optional[str] = None
+    history: Optional[list] = None
 
 @app.post("/api/chat")
 async def chat_with_ai(request: ChatRequest):
@@ -66,7 +67,8 @@ async def chat_with_ai(request: ChatRequest):
         reply_text = await route_and_process_request(
             model_name_or_url=request.model,
             user_message=request.message,
-            file_or_image_url=file_or_img
+            file_or_image_url=file_or_img,
+            history=request.history
         )
         return {"reply": reply_text}
     except Exception as e:

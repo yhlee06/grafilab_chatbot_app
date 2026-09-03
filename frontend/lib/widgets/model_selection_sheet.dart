@@ -37,7 +37,6 @@ class _ModelSelectionSheetState extends State<ModelSelectionSheet> {
         if (!mounted) return;
         setState(() {
           _models = backendModels
-              .where((item) => item['name'] != 'GLM OCR') // Ensure GLM OCR is NEVER shown in interface
               .map((item) {
                 return AiModel(
                   item['name'] ?? 'Unknown Model',

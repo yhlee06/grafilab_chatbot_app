@@ -49,6 +49,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendMessage(String text, AttachedFileData? attachment) async {
+    // Snapshot prior conversation history for multi-turn context
+    final List<Map<String, String>> history = _messages.map((m) => {
+      'role': m.isUser ? 'user' : 'assistant',
+      'content': m.text,
+    }).toList();
+
     // 1. Add user message with attachment to UI
     setState(() {
       _messages.add(ChatMessageData(text, true, attachment: attachment));
@@ -65,6 +71,7 @@ class _ChatScreenState extends State<ChatScreen> {
           'message': text,
           'image_url': attachment?.base64DataUri,
           'file_url': attachment?.base64DataUri,
+          'history': history,
         }),
       ).timeout(const Duration(seconds: 90));
 
