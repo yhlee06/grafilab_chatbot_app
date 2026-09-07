@@ -54,6 +54,21 @@ class AttachmentSheet extends StatelessWidget {
     }
   }
 
+  static String _resolveMimeType(String fileName, String? systemMime) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.bmp')) return 'image/bmp';
+    if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.txt')) return 'text/plain';
+    if (lower.endsWith('.csv')) return 'text/csv';
+    if (lower.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (lower.endsWith('.doc')) return 'application/msword';
+    return (systemMime != null && systemMime.isNotEmpty) ? systemMime : 'application/octet-stream';
+  }
+
   Future<void> _pickMediaOrFile(BuildContext context) async {
     try {
       final XFile? file = await _picker.pickMedia(
@@ -65,7 +80,8 @@ class AttachmentSheet extends StatelessWidget {
       if (file != null) {
         final Uint8List bytes = await file.readAsBytes();
         final String base64Str = base64Encode(bytes);
-        final String mime = file.mimeType ?? 'application/octet-stream';
+        final String mime = _resolveMimeType(file.name, file.mimeType);
+        final bool isImage = mime.startsWith('image/');
         final dataUri = 'data:$mime;base64,$base64Str';
 
         if (context.mounted) {
@@ -74,7 +90,7 @@ class AttachmentSheet extends StatelessWidget {
             AttachedFileData(
               name: file.name,
               bytes: bytes,
-              isImage: mime.startsWith('image/'),
+              isImage: isImage,
               base64DataUri: dataUri,
             ),
           );
