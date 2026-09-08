@@ -22,14 +22,15 @@ async def route_and_process_request(
 ) -> str:
     """
     Multimodal Agentic Router:
-    1. Input Analyzer: Detects IMAGE vs PDF vs TEXT_DOC vs FILE vs TEXT using Magic Bytes.
-    2. Model Router: Checks model capabilities (supports_vision) in PostgreSQL.
-    3. Branching:
+    1. Input Analyzer: Detects IMAGE vs PDF vs TEXT_DOC vs TEXT, or marks as UNSUPPORTED.
+    2. Format Validation: Rejects UNSUPPORTED formats immediately without entering Model Router.
+    3. Model Router: Checks model capabilities (supports_vision) in PostgreSQL.
+    4. Supported Branching:
        - PDF / TEXT_DOC: Native document text extraction -> Context Builder -> Selected LLM
        - IMAGE + supports_vision=True: Direct Model
        - IMAGE + supports_vision=False: Qwen 3 VL Flash -> Context Builder -> Selected LLM
-       - FILE + supports_vision=False: GLM OCR -> Context Builder -> Selected LLM
        - Dedicated GLM OCR: Direct OCR extraction or multi-turn chat
+       - PURE TEXT: Direct Model
     """
     model_url = model_name_or_url
     supports_vision = False
@@ -37,8 +38,13 @@ async def route_and_process_request(
     # 1. Phase 1: Input Analyzer with Magic Bytes & MIME Normalization
     input_type, normalized_uri, extracted_doc_text = analyze_and_normalize_attachment(file_or_image_url)
     print(f"\n[Input Analyzer] Detected Type: {input_type}")
+
+    # 2. Format Validation: Immediate Rejection for Unsupported Formats
+    if input_type == "UNSUPPORTED":
+        print("[Input Analyzer] Unsupported file format detected. Rejecting immediately.")
+        return "Sorry, this file format is not supported. Please upload a supported image or document format."
     
-    # 2. Phase 2: Model Capability Check from Database
+    # 3. Phase 2: Model Capability Check from Database
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -73,7 +79,7 @@ async def route_and_process_request(
             else:
                 return "请上传图片或文件，GLM OCR 将直接为您提取其中的全部文字与表格。"
 
-    # 3. Phase 3 & 4: Branching according to architecture flowchart
+    # 4. Phase 3: Branching for Supported Formats
 
     # --- BRANCH 1: PDF / TEXT_DOC (Native parsed document) ---
     if input_type in ["PDF", "TEXT_DOC"] and extracted_doc_text:
@@ -114,28 +120,7 @@ async def route_and_process_request(
             print(f"[Selected LLM] Sending enriched prompt to {model_url}...")
             return await call_ai_model(model_url=model_url, user_message=enriched_message, history=history)
 
-    # --- BRANCH 3: GENERIC FILE ---
-    elif input_type == "FILE":
-        if supports_vision:
-            print("[Model Router] Branch: FILE -> supports_vision=True -> Direct Model")
-            return await call_ai_model(model_url=model_url, user_message=user_message, image_url=normalized_uri, history=history)
-        else:
-            print("[Model Router] Branch: FILE -> supports_vision=False -> GLM OCR (Document Extraction)")
-            ocr_text = await extract_text_using_glm_ocr(normalized_uri, user_prompt=user_message)
-            
-            # Context Builder
-            print(f"[Context Builder] Stitched extracted OCR text into prompt for {model_url}")
-            enriched_message = (
-                f"{user_message}\n\n"
-                f"--- [Extracted Content from File via GLM OCR] ---\n"
-                f"{ocr_text}\n"
-                f"------------------------------------------------\n"
-                f"请仔细阅读上述提取的文档内容，回答用户的问题。"
-            )
-            print(f"[Selected LLM] Sending enriched prompt to {model_url}...")
-            return await call_ai_model(model_url=model_url, user_message=enriched_message, history=history)
-
-    # --- BRANCH 4: PURE TEXT ---
+    # --- BRANCH 3: PURE TEXT ---
     else:
         print("[Model Router] Branch: PURE TEXT -> Direct Model")
         return await call_ai_model(model_url=model_url, user_message=user_message, history=history)
