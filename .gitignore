@@ -1,0 +1,74 @@
+# ==========================================
+# 1. Security & Environment Keys (CRITICAL)
+# ==========================================
+.env
+*.env
+.env.*
+backend/.env
+backend/.env.*
+*.key
+*.pem
+*.cert
+
+# ==========================================
+# 2. Python Backend & Virtual Environments
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+env.bak/
+venv.bak/
+
+# Logs & Debugging
+*.log
+logs/
+backend/logs/
+backend/logs/*.log
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==========================================
+# 3. Flutter & Dart Frontend
+# ==========================================
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+frontend/build/
+frontend/android/app/debug/
+frontend/android/app/profile/
+frontend/android/app/release/
+*.apk
+*.aab
+
+# ==========================================
+# 4. OS & IDE Metadata
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/settings.json
