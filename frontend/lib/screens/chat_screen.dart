@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -39,11 +41,13 @@ class _ChatScreenState extends State<ChatScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _selectedModel = 'ILMU Mini v3.3';
   String _selectedModelSlug = 'ilmu/ilmu-mini-v3.3';
+  String? _currentConversationId;
   final List<ChatMessageData> _messages = [];
   bool _isWaitingForReply = false;
 
   void _handleNewChat() {
     setState(() {
+      _currentConversationId = null;
       _messages.clear();
       _isWaitingForReply = false;
     });
@@ -78,6 +82,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
         // Auto-clear prior chat history to avoid cross-model persona contamination
         if (isDifferentModel) {
+          _currentConversationId = null;
           _messages.clear();
           _isWaitingForReply = false;
         }
@@ -149,11 +154,15 @@ class _ChatScreenState extends State<ChatScreen> {
           'history': messagesPayload,
           'image_url': (attachment != null && attachment.isImage) ? attachment.base64DataUri : null,
           'file_url': (attachment != null && !attachment.isImage) ? attachment.base64DataUri : null,
+          'conversation_id': _currentConversationId,
         }),
-      ).timeout(const Duration(seconds: 90));
+      ).timeout(const Duration(seconds: 150));
 
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));
+        if (data['conversation_id'] != null) {
+          _currentConversationId = data['conversation_id'].toString();
+        }
         final msgType = (data['type'] ?? 'text').toString();
 
         if (msgType == 'image' && data['image_url'] != null && data['image_url'].toString().isNotEmpty) {
@@ -206,6 +215,15 @@ class _ChatScreenState extends State<ChatScreen> {
           _isWaitingForReply = false;
         });
       }
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(ChatMessageData(
+          "请求超时：AI 思考或图片生成耗时较长，请稍后重试或尝试更简短的提示词。",
+          false,
+        ));
+        _isWaitingForReply = false;
+      });
     } catch (e) {
       debugPrint('\n==================================================');
       debugPrint('[FLUTTER CHAT COMPLETION ERROR]: $e');
@@ -213,6 +231,81 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!mounted) return;
       setState(() {
         _messages.add(ChatMessageData("Error connecting to server: $e", false));
+        _isWaitingForReply = false;
+      });
+    }
+  }
+
+  Future<void> _loadConversation(String convId, [String? modelSlug]) async {
+    setState(() {
+      _currentConversationId = convId;
+      _messages.clear();
+      _isWaitingForReply = true;
+    });
+
+    try {
+      final apiKey = (AuthService.selectedApiKey != null && AuthService.selectedApiKey!.isNotEmpty)
+          ? AuthService.selectedApiKey!
+          : (AuthService.token ?? '');
+
+      if (apiKey.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _isWaitingForReply = false;
+        });
+        return;
+      }
+
+      final authHeader = apiKey.startsWith('Bearer ') ? apiKey : 'Bearer $apiKey';
+
+      final response = await http.get(
+        Uri.parse(ApiConfig.conversationMessagesEndpoint(convId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader,
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(utf8.decode(response.bodyBytes));
+        final List<dynamic> loadedMessages = data['messages'] ?? [];
+        final String? serverModelSlug = data['model_slug'];
+
+        final List<ChatMessageData> parsed = [];
+        for (final msg in loadedMessages) {
+          final isUser = msg['role'] == 'user';
+          final msgType = (msg['type'] ?? 'text').toString();
+          final content = (msg['content'] ?? '').toString();
+          final imageUrl = msg['image_url']?.toString();
+
+          parsed.add(
+            ChatMessageData(
+              content,
+              isUser,
+              imageUrl: imageUrl,
+              type: msgType,
+            ),
+          );
+        }
+
+        if (!mounted) return;
+        setState(() {
+          _messages.addAll(parsed);
+          _isWaitingForReply = false;
+          if (serverModelSlug != null && serverModelSlug.isNotEmpty) {
+            _selectedModelSlug = serverModelSlug;
+            _selectedModel = serverModelSlug.split('/').last;
+          }
+        });
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _isWaitingForReply = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
         _isWaitingForReply = false;
       });
     }
@@ -226,12 +319,90 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _openImagePreview({String? imageUrl, Uint8List? bytes}) {
+    if (imageUrl == null && bytes == null) return;
+    FocusScope.of(context).unfocus();
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.92),
+      builder: (ctx) {
+        return Dialog(
+          insetPadding: EdgeInsets.zero,
+          backgroundColor: Colors.transparent,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Zoomable interactive image area
+              Center(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4.0,
+                  clipBehavior: Clip.none,
+                  child: imageUrl != null
+                      ? Image.network(
+                          imageUrl,
+                          fit: BoxFit.contain,
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(color: Colors.white70),
+                            );
+                          },
+                          errorBuilder: (context, error, stack) {
+                            return const Center(
+                              child: Text(
+                                'Failed to load preview',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            );
+                          },
+                        )
+                      : Image.memory(
+                          bytes!,
+                          fit: BoxFit.contain,
+                        ),
+                ),
+              ),
+
+              // Close button at top right
+              Positioned(
+                top: 16,
+                right: 16,
+                child: SafeArea(
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(ctx).pop(),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
       drawer: ChatDrawer(
         onNewChat: _handleNewChat,
+        onSelectConversation: (id, modelSlug) => _loadConversation(id, modelSlug),
+        currentConversationId: _currentConversationId,
       ),
       body: SafeArea(
         child: Column(
@@ -315,12 +486,15 @@ class _ChatScreenState extends State<ChatScreen> {
                                           if (msg.attachment!.isImage)
                                             Padding(
                                               padding: const EdgeInsets.only(bottom: 8.0),
-                                              child: ClipRRect(
-                                                borderRadius: BorderRadius.circular(12),
-                                                child: Image.memory(
-                                                  msg.attachment!.bytes,
-                                                  width: 180,
-                                                  fit: BoxFit.cover,
+                                              child: GestureDetector(
+                                                onTap: () => _openImagePreview(bytes: msg.attachment!.bytes),
+                                                child: ClipRRect(
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  child: Image.memory(
+                                                    msg.attachment!.bytes,
+                                                    width: 180,
+                                                    fit: BoxFit.cover,
+                                                  ),
                                                 ),
                                               ),
                                             )
@@ -359,49 +533,73 @@ class _ChatScreenState extends State<ChatScreen> {
                                       ],
                                     )
                                   : msg.type == 'image' && msg.imageUrl != null
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(16),
-                                          child: Image.network(
-                                            msg.imageUrl!,
-                                            width: MediaQuery.of(context).size.width * 0.75,
-                                            fit: BoxFit.cover,
-                                            loadingBuilder: (context, child, loadingProgress) {
-                                              if (loadingProgress == null) return child;
-                                              return Container(
-                                                width: MediaQuery.of(context).size.width * 0.75,
-                                                height: 240,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey.shade200,
-                                                  borderRadius: BorderRadius.circular(16),
+                                      ? GestureDetector(
+                                          onTap: () => _openImagePreview(imageUrl: msg.imageUrl),
+                                          child: Stack(
+                                            alignment: Alignment.bottomRight,
+                                            children: [
+                                              ClipRRect(
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: Image.network(
+                                                  msg.imageUrl!,
+                                                  width: MediaQuery.of(context).size.width * 0.75,
+                                                  fit: BoxFit.cover,
+                                                  loadingBuilder: (context, child, loadingProgress) {
+                                                    if (loadingProgress == null) return child;
+                                                    return Container(
+                                                      width: MediaQuery.of(context).size.width * 0.75,
+                                                      height: 240,
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.grey.shade200,
+                                                        borderRadius: BorderRadius.circular(16),
+                                                      ),
+                                                      child: Center(
+                                                        child: CircularProgressIndicator(
+                                                          value: loadingProgress.expectedTotalBytes != null
+                                                               ? loadingProgress.cumulativeBytesLoaded /
+                                                                   loadingProgress.expectedTotalBytes!
+                                                               : null,
+                                                          color: Colors.black54,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                  errorBuilder: (context, error, stackTrace) {
+                                                    return Container(
+                                                      width: MediaQuery.of(context).size.width * 0.75,
+                                                      height: 120,
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.grey.shade100,
+                                                        borderRadius: BorderRadius.circular(16),
+                                                        border: Border.all(color: Colors.grey.shade300),
+                                                      ),
+                                                      child: Center(
+                                                        child: Text(
+                                                          'Failed to load generated image.',
+                                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
                                                 ),
-                                                child: Center(
-                                                  child: CircularProgressIndicator(
-                                                    value: loadingProgress.expectedTotalBytes != null
-                                                        ? loadingProgress.cumulativeBytesLoaded /
-                                                            loadingProgress.expectedTotalBytes!
-                                                        : null,
-                                                    color: Colors.black54,
+                                              ),
+                                              Positioned(
+                                                right: 10,
+                                                bottom: 10,
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(5),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.black.withValues(alpha: 0.55),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.zoom_in_rounded,
+                                                    color: Colors.white,
+                                                    size: 18,
                                                   ),
                                                 ),
-                                              );
-                                            },
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Container(
-                                                width: MediaQuery.of(context).size.width * 0.75,
-                                                height: 120,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey.shade100,
-                                                  borderRadius: BorderRadius.circular(16),
-                                                  border: Border.all(color: Colors.grey.shade300),
-                                                ),
-                                                child: Center(
-                                                  child: Text(
-                                                    'Failed to load generated image.',
-                                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                                                  ),
-                                                ),
-                                              );
-                                            },
+                                              ),
+                                            ],
                                           ),
                                         )
                                       : MarkdownBody(

@@ -60,7 +60,7 @@ async def generate_image(
     print("="*50 + "\n")
 
     try:
-        async with httpx.AsyncClient(timeout=90.0) as client:
+        async with httpx.AsyncClient(timeout=140.0) as client:
             response = await client.post(endpoint, headers=headers, json=payload)
             response.raise_for_status()
             data = response.json()

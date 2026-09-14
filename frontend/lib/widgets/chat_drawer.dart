@@ -1,15 +1,134 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../screens/select_api_key_screen.dart';
 import '../services/auth_service.dart';
 
-class ChatDrawer extends StatelessWidget {
+class ChatDrawer extends StatefulWidget {
   final VoidCallback? onNewChat;
+  final Function(String conversationId, String? modelSlug)? onSelectConversation;
+  final String? currentConversationId;
 
-  const ChatDrawer({super.key, this.onNewChat});
+  const ChatDrawer({
+    super.key,
+    this.onNewChat,
+    this.onSelectConversation,
+    this.currentConversationId,
+  });
+
+  @override
+  State<ChatDrawer> createState() => _ChatDrawerState();
+}
+
+class _ChatDrawerState extends State<ChatDrawer> {
+  List<dynamic> _conversations = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchConversations();
+  }
+
+  Future<void> _fetchConversations() async {
+    try {
+      final apiKey = (AuthService.selectedApiKey != null && AuthService.selectedApiKey!.isNotEmpty)
+          ? AuthService.selectedApiKey!
+          : (AuthService.token ?? '');
+      final authHeader = apiKey.startsWith('Bearer ') ? apiKey : 'Bearer $apiKey';
+
+      final response = await http.get(
+        Uri.parse(ApiConfig.conversationsEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader,
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(utf8.decode(response.bodyBytes));
+        if (mounted) {
+          setState(() {
+            _conversations = data['conversations'] ?? [];
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteConversation(String id) async {
+    try {
+      final apiKey = (AuthService.selectedApiKey != null && AuthService.selectedApiKey!.isNotEmpty)
+          ? AuthService.selectedApiKey!
+          : (AuthService.token ?? '');
+      final authHeader = apiKey.startsWith('Bearer ') ? apiKey : 'Bearer $apiKey';
+
+      await http.delete(
+        Uri.parse(ApiConfig.deleteConversationEndpoint(id)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader,
+        },
+      );
+
+      if (mounted) {
+        setState(() {
+          _conversations.removeWhere((c) => c['id'] == id);
+        });
+      }
+
+      if (widget.currentConversationId == id) {
+        widget.onNewChat?.call();
+      }
+    } catch (_) {
+      // Ignore network deletion errors gracefully
+    }
+  }
+
+  String _formatTimestamp(String? timestampStr) {
+    if (timestampStr == null || timestampStr.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(timestampStr).toLocal();
+      final now = DateTime.now();
+      final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+      final yesterday = now.subtract(const Duration(days: 1));
+      final isYesterday = dt.year == yesterday.year && dt.month == yesterday.month && dt.day == yesterday.day;
+
+      final hour = dt.hour.toString().padLeft(2, '0');
+      final minute = dt.minute.toString().padLeft(2, '0');
+
+      if (isToday) {
+        return 'Today $hour:$minute';
+      } else if (isYesterday) {
+        return 'Yesterday $hour:$minute';
+      } else {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final monthStr = months[dt.month - 1];
+        return '$monthStr ${dt.day}, $hour:$minute';
+      }
+    } catch (_) {
+      return '';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width * 0.78;
+    final bool isNewChatActive = widget.currentConversationId == null;
 
     return Drawer(
       width: width,
@@ -96,87 +215,94 @@ class ChatDrawer extends StatelessWidget {
                 ),
               ),
 
-              // 2. Primary Button: New Chat
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.pop(context);
-                    onNewChat?.call();
-                  },
-                  borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF4F83F5), Color(0xFF2C6EF5)],
+              // 2. Primary Button: New Chat (when active)
+              if (isNewChatActive) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      widget.onNewChat?.call();
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4F83F5), Color(0xFF2C6EF5)],
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x402563EB),
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x402563EB),
-                          blurRadius: 12,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.add,
+                              color: Colors.white,
+                              size: 18,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.add,
-                            color: Colors.white,
-                            size: 18,
+                          const SizedBox(width: 12),
+                          const Text(
+                            'New Chat',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'New Chat',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                          const Spacer(),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            color: Colors.white.withValues(alpha: 0.8),
+                            size: 13,
                           ),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          color: Colors.white.withValues(alpha: 0.8),
-                          size: 13,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
+              ],
 
-              // 3. Navigation Group: History & API Key
+              // 3. Navigation Group: New Chat (when inactive) & API Key
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: Column(
                   children: [
-                    _buildNavItem(
-                      icon: Icons.access_time_rounded,
-                      iconBg: const Color(0xFFE2EDFE),
-                      iconColor: const Color(0xFF2563EB),
-                      title: 'History',
-                      onTap: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(height: 6),
+                    if (!isNewChatActive) ...[
+                      _buildNavItem(
+                        icon: Icons.add,
+                        iconBg: const Color(0xFFE2EDFE),
+                        iconColor: const Color(0xFF2563EB),
+                        title: 'New Chat',
+                        onTap: () {
+                          Navigator.pop(context);
+                          widget.onNewChat?.call();
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                    ],
                     _buildNavItem(
                       icon: Icons.vpn_key_rounded,
                       iconBg: const Color(0xFFF3E8FF),
                       iconColor: const Color(0xFF9333EA),
                       title: 'API Key',
                       onTap: () {
-                        Navigator.pop(context); // Close drawer
+                        Navigator.pop(context);
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (context) => SelectApiKeyScreen(
@@ -205,10 +331,13 @@ class ChatDrawer extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    Icon(
-                      Icons.search_rounded,
-                      size: 18,
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
                       color: Colors.grey.shade400,
+                      splashRadius: 16,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                      onPressed: _fetchConversations,
                     ),
                   ],
                 ),
@@ -217,51 +346,68 @@ class ChatDrawer extends StatelessWidget {
 
               // 5. Scrollable Recent Chats List
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  children: [
-                    _buildRecentItem(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      iconBg: const Color(0xFFE2EDFE),
-                      iconColor: const Color(0xFF2563EB),
-                      title: 'Image generation...',
-                      time: 'Today 09:24',
-                      onTap: () => Navigator.pop(context),
-                    ),
-                    _buildRecentItem(
-                      icon: Icons.article_outlined,
-                      iconBg: const Color(0xFFE2F9EE),
-                      iconColor: const Color(0xFF10B981),
-                      title: 'Explain this code',
-                      time: 'Yesterday 16:32',
-                      onTap: () => Navigator.pop(context),
-                    ),
-                    _buildRecentItem(
-                      icon: Icons.lightbulb_outline_rounded,
-                      iconBg: const Color(0xFFF3E8FF),
-                      iconColor: const Color(0xFF9333EA),
-                      title: 'Travel plan',
-                      time: 'Aug 8, 14:20',
-                      onTap: () => Navigator.pop(context),
-                    ),
-                    _buildRecentItem(
-                      icon: Icons.school_outlined,
-                      iconBg: const Color(0xFFFEF3C7),
-                      iconColor: const Color(0xFFF59E0B),
-                      title: 'Study tips',
-                      time: 'Aug 6, 10:15',
-                      onTap: () => Navigator.pop(context),
-                    ),
-                    _buildRecentItem(
-                      icon: Icons.edit_outlined,
-                      iconBg: const Color(0xFFE0F7FA),
-                      iconColor: const Color(0xFF00ACC1),
-                      title: 'Project ideas',
-                      time: 'Aug 3, 19:47',
-                      onTap: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
+                child: _isLoading
+                    ? const Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Color(0xFF2563EB),
+                          ),
+                        ),
+                      )
+                    : _conversations.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.chat_bubble_outline_rounded,
+                                    size: 36,
+                                    color: Colors.grey.shade300,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'No recent chats',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade400,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                            itemCount: _conversations.length,
+                            itemBuilder: (context, index) {
+                              final item = _conversations[index];
+                              final String id = item['id'].toString();
+                              final String title = item['title']?.toString() ?? 'New Chat';
+                              final String time = _formatTimestamp(item['updated_at']?.toString());
+                              final String? modelSlug = item['model_slug']?.toString();
+                              final bool isSelected = widget.currentConversationId == id;
+
+                              return _buildRecentItem(
+                                icon: Icons.chat_bubble_outline_rounded,
+                                iconBg: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2EDFE),
+                                iconColor: isSelected ? Colors.white : const Color(0xFF2563EB),
+                                title: title,
+                                time: time,
+                                isSelected: isSelected,
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  widget.onSelectConversation?.call(id, modelSlug);
+                                },
+                                onDelete: () => _deleteConversation(id),
+                              );
+                            },
+                          ),
               ),
 
               // 6. Settings Card Button
@@ -362,62 +508,85 @@ class ChatDrawer extends StatelessWidget {
     );
   }
 
-  static Widget _buildRecentItem({
+  Widget _buildRecentItem({
     required IconData icon,
     required Color iconBg,
     required Color iconColor,
     required String title,
     required String time,
     required VoidCallback onTap,
+    required VoidCallback onDelete,
+    bool isSelected = false,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6.0),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 3.0),
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.white : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 6.0),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 18),
               ),
-              child: Icon(icon, color: iconColor, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E293B),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                        color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    time,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ),
-                ],
+                    if (time.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        time,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: Color(0xFFCBD5E1),
-              size: 13,
-            ),
-          ],
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded, size: 17),
+                color: const Color(0xFF94A3B8),
+                splashRadius: 18,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                onPressed: onDelete,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -491,7 +660,7 @@ class _FooterIllustrationPainter extends CustomPainter {
     textPainter.layout();
     canvas.save();
     canvas.translate(size.width * 0.34, size.height * 0.18);
-    canvas.rotate(-0.06); // gentle slant
+    canvas.rotate(-0.06);
     textPainter.paint(canvas, Offset.zero);
     canvas.restore();
   }

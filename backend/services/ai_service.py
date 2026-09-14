@@ -71,7 +71,7 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
         "Strict rule: Always respond in the exact same language that the user uses in their question. "
         "If the user asks in Chinese, you must reply entirely in natural, fluent Chinese.\n\n"
         "Tool Selection Guidelines:\n"
-        "- If the user asks to draw, paint, create, generate, or design an image/picture/artwork (e.g., 'draw a futuristic city', '帮我画一只猫', 'generate an image of...'), call the 'image_generation' tool with a vivid, descriptive English prompt.\n"
+        "- If the user asks to draw, paint, create, generate, or design an image/picture/artwork (e.g., 'draw a futuristic city', '帮我画一只猫', 'generate an image of...'), call the 'image_generation' tool with a concise, focused English prompt (keep under 40 words, capturing the core subject, style, and lighting).\n"
         "- If the user asks for real-time events, current news, weather, or specific local dining/places, call the 'web_search' tool.\n"
         "- Otherwise, reply directly with informative text without invoking any tools."
     )
@@ -93,7 +93,7 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
     max_tool_turns = 3
     turn = 0
     
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=90.0) as client:
         try:
             while turn < max_tool_turns:
                 turn += 1

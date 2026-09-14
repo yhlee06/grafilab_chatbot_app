@@ -15,8 +15,8 @@ IMAGE_GENERATION_TOOL = {
                 "prompt": {
                     "type": "string",
                     "description": (
-                        "A rich, detailed visual description of the image to generate. "
-                        "Describe the subject, setting, art style, composition, lighting, and colors in natural English."
+                        "A concise, vivid visual description of the image to generate in English. "
+                        "Keep under 40 words, focusing on the core subject, setting, art style, and lighting."
                     )
                 }
             },
