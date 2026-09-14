@@ -4,4 +4,7 @@ class ApiConfig {
 
   static String get chatEndpoint => '$baseUrl/api/chat';
   static String get modelsEndpoint => '$baseUrl/api/models';
+  static const String loginEndpoint = 'https://console-api.grafilab.ai/api/auth/login';
+  static const String apiKeysEndpoint = 'https://console-api.grafilab.ai/api/inference/api-key';
+  static const String chatCompletionsEndpoint = 'https://console-api.grafilab.ai/api/oai/v1/chat/completions';
 }

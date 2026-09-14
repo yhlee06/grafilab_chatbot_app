@@ -7,6 +7,10 @@ import '../widgets/model_selector.dart';
 import '../widgets/chat_input.dart';
 import '../widgets/attachment_sheet.dart';
 import '../config/api_config.dart';
+import '../services/auth_service.dart';
+import '../models/ai_model.dart';
+import '../widgets/chat_drawer.dart';
+import 'login_screen.dart';
 
 class ChatMessageData {
   final String text;
@@ -24,12 +28,21 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _selectedModel = 'ILMU Mini v3.3';
+  String _selectedModelSlug = 'ilmu/ilmu-mini-v3.3';
   final List<ChatMessageData> _messages = [];
   bool _isWaitingForReply = false;
 
+  void _handleNewChat() {
+    setState(() {
+      _messages.clear();
+      _isWaitingForReply = false;
+    });
+  }
+
   void _openModelSelector() async {
-    final result = await showModalBottomSheet<String>(
+    final result = await showModalBottomSheet<dynamic>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -37,61 +50,139 @@ class _ChatScreenState extends State<ChatScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return ModelSelectionSheet(initialSelection: _selectedModel);
+        return ModelSelectionSheet(
+          initialSelection: _selectedModel,
+        );
       },
     );
 
     if (result != null) {
+      final String modelName = (result is AiModel) ? result.name : result.toString();
+      final String modelSlug = (result is AiModel && result.modelUrl != null && result.modelUrl!.isNotEmpty)
+          ? result.modelUrl!
+          : modelName;
+
+      final isDifferentModel = modelName != _selectedModel || modelSlug != _selectedModelSlug;
+
       setState(() {
-        _selectedModel = result;
+        _selectedModel = modelName;
+        _selectedModelSlug = modelSlug;
+
+        // Auto-clear prior chat history to avoid cross-model persona contamination
+        if (isDifferentModel) {
+          _messages.clear();
+          _isWaitingForReply = false;
+        }
       });
     }
   }
 
   Future<void> _sendMessage(String text, AttachedFileData? attachment) async {
-    // Snapshot prior conversation history for multi-turn context
-    final List<Map<String, String>> history = _messages.map((m) => {
-      'role': m.isUser ? 'user' : 'assistant',
-      'content': m.text,
-    }).toList();
+    // 1. Snapshot prior conversation history for multi-turn context
+    final List<Map<String, dynamic>> messagesPayload = [];
+    for (final m in _messages) {
+      messagesPayload.add({
+        'role': m.isUser ? 'user' : 'assistant',
+        'content': m.text,
+      });
+    }
 
-    // 1. Add user message with attachment to UI
+    // 2. Add current user message with attachment or text
+    if (attachment != null && attachment.base64DataUri.isNotEmpty) {
+      messagesPayload.add({
+        'role': 'user',
+        'content': [
+          {'type': 'text', 'text': text},
+          {
+            'type': 'image_url',
+            'image_url': {'url': attachment.base64DataUri},
+          },
+        ],
+      });
+    } else {
+      messagesPayload.add({
+        'role': 'user',
+        'content': text,
+      });
+    }
+
+    // 3. Add user message with attachment to UI
     setState(() {
       _messages.add(ChatMessageData(text, true, attachment: attachment));
       _isWaitingForReply = true;
     });
 
-    // 2. Call FastAPI backend
+    // 4. Call Grafilab official chat completions API directly
     try {
+      final apiKey = (AuthService.selectedApiKey != null && AuthService.selectedApiKey!.isNotEmpty)
+          ? AuthService.selectedApiKey!
+          : (AuthService.token ?? '');
+
+      if (apiKey.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _messages.add(ChatMessageData("Error: No API key or token found. Please log in again.", false));
+          _isWaitingForReply = false;
+        });
+        return;
+      }
+
+      final authHeader = apiKey.startsWith('Bearer ') ? apiKey : 'Bearer $apiKey';
+
       final response = await http.post(
         Uri.parse(ApiConfig.chatEndpoint),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader,
+        },
         body: json.encode({
-          'model': _selectedModel,
+          'model': _selectedModelSlug,
           'message': text,
-          'image_url': attachment?.base64DataUri,
-          'file_url': attachment?.base64DataUri,
-          'history': history,
+          'history': messagesPayload,
+          'image_url': (attachment != null && attachment.isImage) ? attachment.base64DataUri : null,
+          'file_url': (attachment != null && !attachment.isImage) ? attachment.base64DataUri : null,
         }),
       ).timeout(const Duration(seconds: 90));
 
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));
+        String reply = (data['reply'] ?? '').toString().trim();
+        if (reply.isEmpty) {
+          reply = 'No response content returned from AI model.';
+        }
+
         if (!mounted) return;
         setState(() {
-          _messages.add(ChatMessageData(data['reply'], false));
+          _messages.add(ChatMessageData(reply, false));
           _isWaitingForReply = false;
         });
       } else {
         if (!mounted) return;
+        String errorDetail = 'Server returned ${response.statusCode}';
+        try {
+          final errData = json.decode(utf8.decode(response.bodyBytes));
+          if (errData['reply'] != null) {
+            errorDetail = errData['reply'].toString();
+          } else if (errData['error'] != null && errData['error']['message'] != null) {
+            errorDetail = errData['error']['message'].toString();
+          } else if (errData['detail'] != null) {
+            errorDetail = errData['detail'].toString();
+          }
+        } catch (_) {}
+
+        debugPrint('\n================ [AI ERROR] ================');
+        debugPrint('Status Code: ${response.statusCode}');
+        debugPrint('Error: $errorDetail');
+        debugPrint('============================================\n');
+
         setState(() {
-          _messages.add(ChatMessageData("Error: Server returned ${response.statusCode}", false));
+          _messages.add(ChatMessageData("Error: $errorDetail", false));
           _isWaitingForReply = false;
         });
       }
     } catch (e) {
       debugPrint('\n==================================================');
-      debugPrint('[FLUTTER NETWORK CONNECTION ERROR]: $e');
+      debugPrint('[FLUTTER CHAT COMPLETION ERROR]: $e');
       debugPrint('==================================================\n');
       if (!mounted) return;
       setState(() {
@@ -101,9 +192,21 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _handleLogout() {
+    AuthService.clear();
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: ChatDrawer(
+        onNewChat: _handleNewChat,
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -123,7 +226,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                       child: IconButton(
                         icon: const Icon(Icons.menu_rounded, color: Colors.black87),
-                        onPressed: () {},
+                        onPressed: () {
+                          _scaffoldKey.currentState?.openDrawer();
+                        },
                       ),
                     ),
                   ),
@@ -131,6 +236,15 @@ class _ChatScreenState extends State<ChatScreen> {
                   ModelSelector(
                     selectedModel: _selectedModel,
                     onTap: _openModelSelector,
+                  ),
+                  // Logout Button
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      icon: const Icon(Icons.logout_rounded, color: Colors.black87),
+                      onPressed: _handleLogout,
+                      tooltip: 'Log Out',
+                    ),
                   ),
                 ],
               ),

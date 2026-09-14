@@ -27,7 +27,7 @@ def append_json_log(event_data: dict):
     except Exception as e:
         print(f"Error writing to log file: {e}")
 
-async def call_ai_model(model_url: str, user_message: str, image_url: str = None, history: list = None) -> str:
+async def call_ai_model(model_url: str, user_message: str, image_url: str = None, history: list = None, api_key: str = None) -> str:
     """
     Invokes the AI model.
     Supports multimodal input (when image_url is provided) or standard text chat with Tool Calling and Conversation History.
@@ -46,11 +46,11 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
         "history_len": len(history) if history else 0
     })
     
-    api_key = os.getenv("GRAFILAB_API_KEY", "")
+    effective_key = api_key or os.getenv("GRAFILAB_API_KEY", "")
     base_url = os.getenv("GRAFILAB_BASE_URL", "https://console-api.grafilab.ai/api/oai/v1")
     
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {effective_key}",
         "Content-Type": "application/json"
     }
     
@@ -252,6 +252,16 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
             total_duration_ms = int((time.time() - request_start_time) * 1000)
             status_code = e.response.status_code if hasattr(e, 'response') and e.response is not None else "Unknown"
             detail = e.response.text if hasattr(e, 'response') and e.response is not None else str(e)
+            try:
+                err_json = e.response.json()
+                if isinstance(err_json, dict) and "error" in err_json:
+                    err_obj = err_json["error"]
+                    if isinstance(err_obj, dict) and "message" in err_obj:
+                        detail = err_obj["message"]
+                    elif isinstance(err_obj, str):
+                        detail = err_obj
+            except Exception:
+                pass
             error_msg = f"API Error ({status_code}): {detail}"
             
             print("\n" + "="*50)

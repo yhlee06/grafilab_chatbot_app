@@ -18,7 +18,8 @@ async def route_and_process_request(
     model_name_or_url: str,
     user_message: str,
     file_or_image_url: str = None,
-    history: list = None
+    history: list = None,
+    api_key: str = None
 ) -> str:
     """
     Multimodal Agentic Router:
@@ -71,11 +72,11 @@ async def route_and_process_request(
                 print("[Model Router] Dedicated GLM OCR on Document: returning parsed document text.")
                 return extracted_doc_text
             print("[Model Router] Dedicated GLM OCR selected on image. Extracting text directly...")
-            return await extract_text_using_glm_ocr(normalized_uri, user_prompt=user_message)
+            return await extract_text_using_glm_ocr(normalized_uri, user_prompt=user_message, api_key=api_key)
         else:
             if history and len(history) > 0:
                 print("[Model Router] GLM OCR follow-up query with history. Answering...")
-                return await call_ai_model(model_url=model_url, user_message=user_message, history=history)
+                return await call_ai_model(model_url=model_url, user_message=user_message, history=history, api_key=api_key)
             else:
                 return "请上传图片或文件，GLM OCR 将直接为您提取其中的全部文字与表格。"
 
@@ -92,20 +93,21 @@ async def route_and_process_request(
             f"请仔细阅读上述文档内容，回答用户的问题。"
         )
         print(f"[Selected LLM] Sending parsed document text to {model_url}...")
-        return await call_ai_model(model_url=model_url, user_message=enriched_message, history=history)
+        return await call_ai_model(model_url=model_url, user_message=enriched_message, history=history, api_key=api_key)
 
     # --- BRANCH 2: IMAGE ---
     elif input_type == "IMAGE":
         if supports_vision:
             print("[Model Router] Branch: IMAGE -> supports_vision=True -> Direct Model")
-            return await call_ai_model(model_url=model_url, user_message=user_message, image_url=normalized_uri, history=history)
+            return await call_ai_model(model_url=model_url, user_message=user_message, image_url=normalized_uri, history=history, api_key=api_key)
         else:
             print("[Model Router] Branch: IMAGE -> supports_vision=False -> Qwen 3 VL Flash (Visual Proxy)")
             visual_query = f"请仔细观察这张图片，详细提取并描述与用户问题相关的画面、文字、数据与细节。用户问题：{user_message}"
             visual_description = await call_ai_model(
                 model_url="qwen/qwen3-vl-flash",
                 user_message=visual_query,
-                image_url=normalized_uri
+                image_url=normalized_uri,
+                api_key=api_key
             )
             
             # Context Builder
@@ -118,9 +120,9 @@ async def route_and_process_request(
                 f"请结合上述图片中的视觉与文字细节，准确回答用户的问题。"
             )
             print(f"[Selected LLM] Sending enriched prompt to {model_url}...")
-            return await call_ai_model(model_url=model_url, user_message=enriched_message, history=history)
+            return await call_ai_model(model_url=model_url, user_message=enriched_message, history=history, api_key=api_key)
 
     # --- BRANCH 3: PURE TEXT ---
     else:
         print("[Model Router] Branch: PURE TEXT -> Direct Model")
-        return await call_ai_model(model_url=model_url, user_message=user_message, history=history)
+        return await call_ai_model(model_url=model_url, user_message=user_message, history=history, api_key=api_key)

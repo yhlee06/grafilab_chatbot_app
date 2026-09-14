@@ -42,16 +42,16 @@ def clean_and_format_ocr_output(raw_text: str) -> str:
         
     return text if text.strip() else "GLM OCR 未能在此图片中识别到清晰的文字或表格，请尝试重新拍照或调整角度。"
 
-async def extract_text_using_glm_ocr(file_url_or_base64: str, user_prompt: str = None) -> str:
+async def extract_text_using_glm_ocr(file_url_or_base64: str, user_prompt: str = None, api_key: str = None) -> str:
     """
     Calls dedicated GLM OCR (grafilab/glm-ocr) to extract text, tables, and documents accurately.
     Accepts user prompt and converts raw HTML tables to clean Markdown.
     """
-    api_key = os.getenv("GRAFILAB_API_KEY", "")
+    effective_key = api_key or os.getenv("GRAFILAB_API_KEY", "")
     base_url = os.getenv("GRAFILAB_BASE_URL", "https://console-api.grafilab.ai/api/oai/v1")
     
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {effective_key}",
         "Content-Type": "application/json"
     }
     

@@ -12,7 +12,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 # Load environment variables from .env
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -61,14 +61,29 @@ class ChatRequest(BaseModel):
     history: Optional[list] = None
 
 @app.post("/api/chat")
-async def chat_with_ai(request: ChatRequest):
+async def chat_with_ai(
+    request: ChatRequest,
+    authorization: Optional[str] = Header(None)
+):
     try:
+        # Extract user API key from Authorization header
+        user_api_key = None
+        if authorization and authorization.startswith("Bearer "):
+            user_api_key = authorization.replace("Bearer ", "").strip()
+        elif authorization:
+            user_api_key = authorization.strip()
+
+        # Defend against missing or empty API key
+        if not user_api_key:
+            return {"reply": "Error: 未检测到有效的 Grafilab API Key。请先在前端登录或在设置中选择您的 API Key。"}
+
         file_or_img = request.image_url or request.file_url
         reply_text = await route_and_process_request(
             model_name_or_url=request.model,
             user_message=request.message,
             file_or_image_url=file_or_img,
-            history=request.history
+            history=request.history,
+            api_key=user_api_key
         )
         return {"reply": reply_text}
     except Exception as e:

@@ -5,6 +5,13 @@ class AiModel {
   final String description;
   final bool isPro;
   final IconData icon;
+  final String? modelUrl;
 
-  AiModel(this.name, this.description, this.isPro, this.icon);
+  AiModel(
+    this.name,
+    this.description,
+    this.isPro,
+    this.icon, {
+    this.modelUrl,
+  });
 }
