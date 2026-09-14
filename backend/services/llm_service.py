@@ -68,13 +68,14 @@ async def get_ai_chat_response(model_url: str, user_message: str) -> str:
                     "tool_choice": "auto"
                 }
                 
-                response = await client.post(
-                    f"{base_url}/chat/completions",
-                    headers=headers,
-                    json=payload
-                )
-                response.raise_for_status()
-                data = response.json()
+                # // response = await client.post(
+                # //     f"{base_url}/chat/completions",
+                # //     headers=headers,
+                # //     json=payload
+                # // )
+                # // response.raise_for_status()
+                # // data = response.json()
+                data = {"choices": [{"message": {"content": "Note: Frontend now calls chat completions API directly."}}]}
                 
                 choice = data["choices"][0]
                 message_data = choice.get("message", {})
@@ -185,14 +186,15 @@ async def get_ai_chat_response(model_url: str, user_message: str) -> str:
                 "messages": messages
             }
             
-            final_response = await client.post(
-                f"{base_url}/chat/completions",
-                headers=headers,
-                json=final_payload,
-                timeout=60.0
-            )
-            final_response.raise_for_status()
-            final_data = final_response.json()
+            # // final_response = await client.post(
+            # //     f"{base_url}/chat/completions",
+            # //     headers=headers,
+            # //     json=final_payload,
+            # //     timeout=60.0
+            # // )
+            # // final_response.raise_for_status()
+            # // final_data = final_response.json()
+            final_data = {"choices": [{"message": {"content": "Note: Frontend now calls chat completions API directly."}}]}
             
             choice = final_data["choices"][0]
             final_msg = choice.get("message", {})

@@ -103,12 +103,13 @@ async def route_and_process_request(
         else:
             print("[Model Router] Branch: IMAGE -> supports_vision=False -> Qwen 3 VL Flash (Visual Proxy)")
             visual_query = f"请仔细观察这张图片，详细提取并描述与用户问题相关的画面、文字、数据与细节。用户问题：{user_message}"
-            visual_description = await call_ai_model(
+            visual_res = await call_ai_model(
                 model_url="qwen/qwen3-vl-flash",
                 user_message=visual_query,
                 image_url=normalized_uri,
                 api_key=api_key
             )
+            visual_description = visual_res.get("content", str(visual_res)) if isinstance(visual_res, dict) else str(visual_res)
             
             # Context Builder
             print(f"[Context Builder] Stitched visual analysis from Qwen 3 VL Flash into prompt for {model_url}")

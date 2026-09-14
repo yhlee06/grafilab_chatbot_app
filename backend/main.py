@@ -75,17 +75,35 @@ async def chat_with_ai(
 
         # Defend against missing or empty API key
         if not user_api_key:
-            return {"reply": "Error: 未检测到有效的 Grafilab API Key。请先在前端登录或在设置中选择您的 API Key。"}
+            return {
+                "type": "text",
+                "content": "Error: 未检测到有效的 Grafilab API Key。请先在前端登录或在设置中选择您的 API Key。",
+                "reply": "Error: 未检测到有效的 Grafilab API Key。请先在前端登录或在设置中选择您的 API Key。"
+            }
 
         file_or_img = request.image_url or request.file_url
-        reply_text = await route_and_process_request(
+        reply_result = await route_and_process_request(
             model_name_or_url=request.model,
             user_message=request.message,
             file_or_image_url=file_or_img,
             history=request.history,
             api_key=user_api_key
         )
-        return {"reply": reply_text}
+
+        if isinstance(reply_result, dict):
+            if "content" in reply_result and "reply" not in reply_result:
+                reply_result["reply"] = reply_result["content"]
+            elif "reply" in reply_result and "content" not in reply_result:
+                reply_result["content"] = reply_result["reply"]
+            if "type" not in reply_result:
+                reply_result["type"] = "text"
+            return reply_result
+
+        return {
+            "type": "text",
+            "content": str(reply_result),
+            "reply": str(reply_result)
+        }
     except Exception as e:
         import traceback
         print("\n" + "="*50)
@@ -94,4 +112,8 @@ async def chat_with_ai(
         print(f"Message: {e}")
         traceback.print_exc()
         print("="*50 + "\n")
-        return {"reply": f"Backend Error: {str(e)}"}
+        return {
+            "type": "text",
+            "content": f"Backend Error: {str(e)}",
+            "reply": f"Backend Error: {str(e)}"
+        }

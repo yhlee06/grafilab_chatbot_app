@@ -16,8 +16,16 @@ class ChatMessageData {
   final String text;
   final bool isUser;
   final AttachedFileData? attachment;
+  final String? imageUrl;
+  final String type; // 'text' or 'image'
 
-  ChatMessageData(this.text, this.isUser, {this.attachment});
+  ChatMessageData(
+    this.text,
+    this.isUser, {
+    this.attachment,
+    this.imageUrl,
+    this.type = 'text',
+  });
 }
 
 class ChatScreen extends StatefulWidget {
@@ -146,16 +154,34 @@ class _ChatScreenState extends State<ChatScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));
-        String reply = (data['reply'] ?? '').toString().trim();
-        if (reply.isEmpty) {
-          reply = 'No response content returned from AI model.';
-        }
+        final msgType = (data['type'] ?? 'text').toString();
 
-        if (!mounted) return;
-        setState(() {
-          _messages.add(ChatMessageData(reply, false));
-          _isWaitingForReply = false;
-        });
+        if (msgType == 'image' && data['image_url'] != null && data['image_url'].toString().isNotEmpty) {
+          final imageUrl = data['image_url'].toString();
+          final prompt = (data['prompt'] ?? data['reply'] ?? text).toString();
+
+          if (!mounted) return;
+          setState(() {
+            _messages.add(ChatMessageData(
+              prompt,
+              false,
+              imageUrl: imageUrl,
+              type: 'image',
+            ));
+            _isWaitingForReply = false;
+          });
+        } else {
+          String reply = (data['content'] ?? data['reply'] ?? '').toString().trim();
+          if (reply.isEmpty) {
+            reply = 'No response content returned from AI model.';
+          }
+
+          if (!mounted) return;
+          setState(() {
+            _messages.add(ChatMessageData(reply, false, type: 'text'));
+            _isWaitingForReply = false;
+          });
+        }
       } else {
         if (!mounted) return;
         String errorDetail = 'Server returned ${response.statusCode}';
@@ -332,17 +358,63 @@ class _ChatScreenState extends State<ChatScreen> {
                                         ),
                                       ],
                                     )
-                                  : MarkdownBody(
-                                      data: msg.text,
-                                      styleSheet: MarkdownStyleSheet(
-                                        p: const TextStyle(fontSize: 16, color: Colors.black87, height: 1.5),
-                                        strong: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
-                                        h1: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
-                                        h2: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.black87),
-                                        h3: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87),
-                                        listBullet: const TextStyle(fontSize: 16, color: Colors.black87),
-                                      ),
-                                    ),
+                                  : msg.type == 'image' && msg.imageUrl != null
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: Image.network(
+                                            msg.imageUrl!,
+                                            width: MediaQuery.of(context).size.width * 0.75,
+                                            fit: BoxFit.cover,
+                                            loadingBuilder: (context, child, loadingProgress) {
+                                              if (loadingProgress == null) return child;
+                                              return Container(
+                                                width: MediaQuery.of(context).size.width * 0.75,
+                                                height: 240,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade200,
+                                                  borderRadius: BorderRadius.circular(16),
+                                                ),
+                                                child: Center(
+                                                  child: CircularProgressIndicator(
+                                                    value: loadingProgress.expectedTotalBytes != null
+                                                        ? loadingProgress.cumulativeBytesLoaded /
+                                                            loadingProgress.expectedTotalBytes!
+                                                        : null,
+                                                    color: Colors.black54,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Container(
+                                                width: MediaQuery.of(context).size.width * 0.75,
+                                                height: 120,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade100,
+                                                  borderRadius: BorderRadius.circular(16),
+                                                  border: Border.all(color: Colors.grey.shade300),
+                                                ),
+                                                child: Center(
+                                                  child: Text(
+                                                    'Failed to load generated image.',
+                                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        )
+                                      : MarkdownBody(
+                                          data: msg.text,
+                                          styleSheet: MarkdownStyleSheet(
+                                            p: const TextStyle(fontSize: 16, color: Colors.black87, height: 1.5),
+                                            strong: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                                            h1: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                                            h2: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.black87),
+                                            h3: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87),
+                                            listBullet: const TextStyle(fontSize: 16, color: Colors.black87),
+                                          ),
+                                        ),
                             ),
                           );
                         },

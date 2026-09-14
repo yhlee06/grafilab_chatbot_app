@@ -12,7 +12,9 @@ if hasattr(sys.stderr, 'reconfigure'):
 from datetime import datetime
 import httpx
 from tools.web_search_tool import WEB_SEARCH_TOOL
+from tools.image_generation_tool import IMAGE_GENERATION_TOOL
 from services.web_search import perform_web_search
+from services.image_generation_service import generate_image
 
 LOG_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs", "chat_history.log")
 
@@ -27,10 +29,11 @@ def append_json_log(event_data: dict):
     except Exception as e:
         print(f"Error writing to log file: {e}")
 
-async def call_ai_model(model_url: str, user_message: str, image_url: str = None, history: list = None, api_key: str = None) -> str:
+async def call_ai_model(model_url: str, user_message: str, image_url: str = None, history: list = None, api_key: str = None) -> dict:
     """
     Invokes the AI model.
     Supports multimodal input (when image_url is provided) or standard text chat with Tool Calling and Conversation History.
+    Returns structured dict with 'type': 'text' | 'image'.
     """
     request_start_time = time.time()
     req_id = f"req_{uuid.uuid4().hex[:6]}"
@@ -66,7 +69,11 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
     system_instruction = (
         "You are a helpful and intelligent AI assistant. "
         "Strict rule: Always respond in the exact same language that the user uses in their question. "
-        "If the user asks in Chinese, you must reply entirely in natural, fluent Chinese."
+        "If the user asks in Chinese, you must reply entirely in natural, fluent Chinese.\n\n"
+        "Tool Selection Guidelines:\n"
+        "- If the user asks to draw, paint, create, generate, or design an image/picture/artwork (e.g., 'draw a futuristic city', '帮我画一只猫', 'generate an image of...'), call the 'image_generation' tool with a vivid, descriptive English prompt.\n"
+        "- If the user asks for real-time events, current news, weather, or specific local dining/places, call the 'web_search' tool.\n"
+        "- Otherwise, reply directly with informative text without invoking any tools."
     )
     
     messages = [
@@ -99,9 +106,9 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
                     "top_p": 0.9
                 }
                 
-                # Only provide search tool if not a direct vision request and not an OCR-dedicated model
+                # Provide tools if not a direct vision request and not an OCR-dedicated model
                 if not image_url and "ocr" not in model_url.lower():
-                    payload["tools"] = [WEB_SEARCH_TOOL]
+                    payload["tools"] = [WEB_SEARCH_TOOL, IMAGE_GENERATION_TOOL]
                     payload["tool_choice"] = "auto"
                 
                 response = await client.post(
@@ -146,7 +153,11 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
                     })
                     
                     print(f"\n[Final AI Response]\n{final_content}\n")
-                    return final_content
+                    return {
+                        "type": "text",
+                        "content": final_content,
+                        "reply": final_content
+                    }
                 
                 # Tool Call request
                 messages.append(message_data)
@@ -161,6 +172,49 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
                         args = json.loads(arguments_str) if isinstance(arguments_str, str) else arguments_str
                     except Exception:
                         args = {}
+
+                    # --- Action: Image Generation ---
+                    if function_name == "image_generation":
+                        prompt_val = args.get("prompt", user_message)
+                        append_json_log({
+                            "timestamp": get_iso_timestamp(),
+                            "level": "INFO",
+                            "event": "tool_call",
+                            "request_id": req_id,
+                            "tool_call_id": call_id,
+                            "tool": "image_generation",
+                            "prompt": prompt_val
+                        })
+                        
+                        img_res = await generate_image(prompt=prompt_val, api_key=effective_key)
+                        total_duration_ms = int((time.time() - request_start_time) * 1000)
+                        
+                        if img_res.get("success"):
+                            img_url = img_res["image_url"]
+                            append_json_log({
+                                "timestamp": get_iso_timestamp(),
+                                "level": "INFO",
+                                "event": "image_generated",
+                                "request_id": req_id,
+                                "image_url": img_url,
+                                "total_duration_ms": total_duration_ms
+                            })
+                            return {
+                                "type": "image",
+                                "image_url": img_url,
+                                "prompt": prompt_val,
+                                "content": f"![{prompt_val}]({img_url})",
+                                "reply": f"已为您生成图片：{prompt_val}"
+                            }
+                        else:
+                            err_msg = img_res.get("error", "Failed to generate image.")
+                            return {
+                                "type": "text",
+                                "content": err_msg,
+                                "reply": err_msg
+                            }
+
+                    # --- Action: Web Search ---
                     
                     query_val = args.get("query", user_message)
                     
@@ -246,7 +300,11 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
             })
             
             print(f"\n[Final AI Response]\n{final_reply}\n")
-            return final_reply
+            return {
+                "type": "text",
+                "content": final_reply,
+                "reply": final_reply
+            }
             
         except httpx.HTTPStatusError as e:
             total_duration_ms = int((time.time() - request_start_time) * 1000)
@@ -287,7 +345,11 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
                 "request_id": req_id,
                 "total_duration_ms": total_duration_ms
             })
-            return error_msg
+            return {
+                "type": "text",
+                "content": error_msg,
+                "reply": error_msg
+            }
             
         except Exception as e:
             import traceback
@@ -319,4 +381,8 @@ async def call_ai_model(model_url: str, user_message: str, image_url: str = None
                 "request_id": req_id,
                 "total_duration_ms": total_duration_ms
             })
-            return error_msg
+            return {
+                "type": "text",
+                "content": error_msg,
+                "reply": error_msg
+            }
